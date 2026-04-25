@@ -10,74 +10,29 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #000; touch-action: none; }
     canvas { display: block; }
-
     #ui {
       position: fixed; inset: 0;
       pointer-events: none;
       font-family: 'Arial Black', Arial, sans-serif;
     }
-
-    /* Score */
     #score {
-      position: absolute;
-      top: 16px; left: 50%; transform: translateX(-50%);
-      color: #fff;
-      font-size: 32px;
-      font-weight: 900;
-      letter-spacing: 2px;
+      position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 32px; font-weight: 900; letter-spacing: 2px;
       text-shadow: 0 2px 8px rgba(0,0,0,0.6);
     }
-
-    /* Brand */
-    #brand {
-      position: absolute;
-      top: 16px; left: 16px;
-      color: #FF6B00;
-      font-size: 11px;
-      letter-spacing: 4px;
-      font-weight: 700;
-    }
-
-    /* Stage badge */
-    #stage-badge {
-      position: absolute;
-      bottom: 16px; right: 16px;
-      color: rgba(255,255,255,0.25);
-      font-size: 9px;
-      letter-spacing: 2px;
-    }
-
-    /* Back link */
-    #back {
-      position: absolute;
-      top: 16px; right: 16px;
-      color: rgba(255,255,255,0.3);
-      font-size: 10px;
-      letter-spacing: 2px;
-      pointer-events: all;
-      text-decoration: none;
-      cursor: pointer;
-    }
+    #brand { position: absolute; top: 16px; left: 16px; color: #FF6B00; font-size: 11px; letter-spacing: 4px; }
+    #back  { position: absolute; top: 16px; right: 16px; color: rgba(255,255,255,0.3); font-size: 10px; letter-spacing: 2px; pointer-events: all; text-decoration: none; cursor: pointer; }
     #back:hover { color: #FF6B00; }
-
-    /* Loading */
+    #stage-badge { position: absolute; bottom: 16px; right: 16px; color: rgba(255,255,255,0.25); font-size: 9px; letter-spacing: 2px; }
     #loading {
-      position: fixed; inset: 0;
-      background: #0a0a14;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 100;
-      transition: opacity 0.5s;
+      position: fixed; inset: 0; background: #0a0a14;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; transition: opacity 0.5s;
     }
-    #loading .logo { color: #FF6B00; font-family: 'Arial Black', Arial; font-size: 11px; letter-spacing: 6px; }
+    #loading .logo  { color: #FF6B00; font-family: 'Arial Black', Arial; font-size: 11px; letter-spacing: 6px; }
     #loading .title { color: #fff; font-family: 'Arial Black', Arial; font-size: 28px; letter-spacing: 4px; font-weight: 900; }
     #load-bar-bg { width: 160px; height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 24px; }
-    #load-bar { height: 100%; width: 0%; background: #FF6B00; border-radius: 2px; transition: width 0.3s; }
+    #load-bar    { height: 100%; width: 0%; background: #FF6B00; border-radius: 2px; transition: width 0.3s; }
   </style>
-
   <script type="importmap">
   {
     "imports": {
@@ -99,15 +54,15 @@
   <div id="brand">HAVAL</div>
   <div id="score">0</div>
   <a id="back" href="index.html">← МЕНЮ</a>
-  <div id="stage-badge">ЭТАП 2 — СЦЕНА</div>
+  <div id="stage-badge">ЭТАП 3 — МИР</div>
 </div>
 
 <script type="module">
 import * as THREE from 'three';
 
-// ── Прогресс загрузки ─────────────────────────────────────────────────────────
+// ── Progress ──────────────────────────────────────────────────────────────────
 const loadBar = document.getElementById('load-bar');
-function setProgress(pct) { loadBar.style.width = pct + '%'; }
+function setProgress(p) { loadBar.style.width = p + '%'; }
 function hideLoading() {
   setProgress(100);
   setTimeout(() => {
@@ -116,16 +71,27 @@ function hideLoading() {
     setTimeout(() => el.remove(), 500);
   }, 300);
 }
-
 setProgress(10);
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const TILE_SIZE  = 1.2;
+const ROW_SIZE   = 1.5;
+const BOARD_HALF = 4;
+const ROW_WIDTH  = (BOARD_HALF * 2 + 3) * TILE_SIZE; // 13.2
+const ROWS_TOTAL = 24; // рядов в мире
+
+// Палитра
+const COLORS = {
+  grass:  [0x5BBF4E, 0x4CAF50],
+  road:   [0x546E7A, 0x4A6070],
+  water:  [0x1E88E5, 0x1976D2],
+  dash:   0xEEEEEE,
+  curb:   0x78909C,
+};
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-
-const renderer = new THREE.WebGLRenderer({
-  antialias: !isMobile,
-  powerPreference: 'high-performance',
-});
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -134,69 +100,133 @@ renderer.shadowMap.autoUpdate = false;
 document.body.appendChild(renderer.domElement);
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Небо
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 28, 52);
 
-setProgress(30);
+setProgress(20);
 
-// ── Ортографическая камера (как в Crossy Road) ────────────────────────────────
+// ── Camera ────────────────────────────────────────────────────────────────────
 const VIEW_SIZE = 8;
 let aspect = window.innerWidth / window.innerHeight;
-
 const camera = new THREE.OrthographicCamera(
-  -VIEW_SIZE * aspect,  // left
-   VIEW_SIZE * aspect,  // right
-   VIEW_SIZE,           // top
-  -VIEW_SIZE,           // bottom
+  -VIEW_SIZE * aspect, VIEW_SIZE * aspect,
+   VIEW_SIZE, -VIEW_SIZE,
   0.1, 200
 );
-
-// Изометрическая позиция: сверху-сзади-немного сбоку
 camera.position.set(0, 15, 15);
 camera.lookAt(0, 0, 0);
 
-setProgress(50);
-
-// ── Освещение ─────────────────────────────────────────────────────────────────
-// Основной солнечный свет
+// ── Lighting ──────────────────────────────────────────────────────────────────
 const sun = new THREE.DirectionalLight(0xFFF5D0, 2.0);
 sun.position.set(8, 20, 10);
 sun.castShadow = true;
 sun.shadow.mapSize.set(512, 512);
-sun.shadow.camera.left   = -20;
-sun.shadow.camera.right  =  20;
-sun.shadow.camera.top    =  20;
-sun.shadow.camera.bottom = -20;
-sun.shadow.camera.near   = 0.1;
-sun.shadow.camera.far    = 80;
+sun.shadow.camera.left = -20; sun.shadow.camera.right  =  20;
+sun.shadow.camera.top  =  20; sun.shadow.camera.bottom = -20;
+sun.shadow.camera.near = 0.1; sun.shadow.camera.far    = 80;
 scene.add(sun);
-
-// Небо + земля (мягкий рассеянный свет)
 scene.add(new THREE.HemisphereLight(0x87CEEB, 0x8B7355, 0.8));
 
-setProgress(70);
+setProgress(40);
 
-// ── Пустая сцена — только временный пол для проверки камеры ──────────────────
-// (будет заменён в этапе 3 на настоящие ряды)
-const floorGeo = new THREE.PlaneGeometry(40, 80);
-const floorMat = new THREE.MeshLambertMaterial({ color: 0x6EC655 });
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
+// ── Shared materials ──────────────────────────────────────────────────────────
+const matGrass  = [
+  new THREE.MeshLambertMaterial({ color: COLORS.grass[0] }),
+  new THREE.MeshLambertMaterial({ color: COLORS.grass[1] }),
+];
+const matRoad   = [
+  new THREE.MeshLambertMaterial({ color: COLORS.road[0] }),
+  new THREE.MeshLambertMaterial({ color: COLORS.road[1] }),
+];
+const matWater  = [
+  new THREE.MeshLambertMaterial({ color: COLORS.water[0] }),
+  new THREE.MeshLambertMaterial({ color: COLORS.water[1] }),
+];
+const matDash   = new THREE.MeshLambertMaterial({ color: COLORS.dash });
+const matCurb   = new THREE.MeshLambertMaterial({ color: COLORS.curb });
 
-// Горизонтальные линии-разделители (подсказка будущих рядов)
-const lineMat = new THREE.LineBasicMaterial({ color: 0x5AB044, transparent: true, opacity: 0.3 });
-for (let z = -20; z <= 20; z += 1.5) {
-  const geo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-20, 0.01, z),
-    new THREE.Vector3( 20, 0.01, z),
-  ]);
-  scene.add(new THREE.Line(geo, lineMat));
+const geoGround = new THREE.BoxGeometry(ROW_WIDTH, 0.2, ROW_SIZE);
+const geoCurb   = new THREE.BoxGeometry(0.5, 0.22, ROW_SIZE);
+const geoDash   = new THREE.BoxGeometry(0.45, 0.01, 0.12);
+
+// ── Row builders ─────────────────────────────────────────────────────────────
+
+function buildGrassRow(index) {
+  const group = new THREE.Group();
+  const ground = new THREE.Mesh(geoGround, matGrass[index % 2]);
+  ground.position.y = -0.1;
+  ground.receiveShadow = true;
+  group.add(ground);
+  return group;
 }
 
-setProgress(90);
+function buildRoadRow(index) {
+  const group = new THREE.Group();
+
+  // Асфальт
+  const ground = new THREE.Mesh(geoGround, matRoad[index % 2]);
+  ground.position.y = -0.1;
+  ground.receiveShadow = true;
+  group.add(ground);
+
+  // Обочины
+  for (const ox of [-ROW_WIDTH / 2 + 0.25, ROW_WIDTH / 2 - 0.25]) {
+    const curb = new THREE.Mesh(geoCurb, matCurb);
+    curb.position.set(ox, -0.09, 0);
+    group.add(curb);
+  }
+
+  // Разметка
+  const dashCount = Math.floor(ROW_WIDTH / 1.2);
+  for (let i = 0; i < dashCount; i++) {
+    const dash = new THREE.Mesh(geoDash, matDash);
+    dash.position.set(-ROW_WIDTH / 2 + i * 1.2 + 0.6, 0.01, 0);
+    group.add(dash);
+  }
+  return group;
+}
+
+function buildWaterRow(index) {
+  const group = new THREE.Group();
+  const ground = new THREE.Mesh(geoGround, matWater[index % 2]);
+  ground.position.y = -0.1;
+  ground.receiveShadow = true;
+  group.add(ground);
+  return group;
+}
+
+// ── Row type picker ───────────────────────────────────────────────────────────
+function pickType(index) {
+  if (index < 3) return 'grass';   // Стартовая безопасная зона
+  const r = Math.random();
+  if (r < 0.28) return 'grass';
+  if (r < 0.55) return 'road';
+  if (r < 0.75) return 'water';
+  return 'grass';
+}
+
+// ── Generate world ────────────────────────────────────────────────────────────
+setProgress(60);
+
+const rows = [];
+
+for (let i = 0; i < ROWS_TOTAL; i++) {
+  const type  = pickType(i);
+  const z     = -i * ROW_SIZE;
+
+  let group;
+  if      (type === 'road')  group = buildRoadRow(i);
+  else if (type === 'water') group = buildWaterRow(i);
+  else                       group = buildGrassRow(i);
+
+  group.position.z = z;
+  scene.add(group);
+  rows.push({ index: i, type, group });
+}
+
 renderer.shadowMap.needsUpdate = true;
+setProgress(90);
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
@@ -207,12 +237,11 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ── Game loop ─────────────────────────────────────────────────────────────────
+// ── Loop ──────────────────────────────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
-
 animate();
 hideLoading();
 </script>
