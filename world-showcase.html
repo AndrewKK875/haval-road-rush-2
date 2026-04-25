@@ -464,28 +464,44 @@ window.clearAll = function() {
   showToast('ОЧИЩЕНО');
 };
 
-// ── Load saved labels ─────────────────────────────────────────────────────────
-function loadSaved() {
+// ── Spawn label from data object ──────────────────────────────────────────────
+function spawnLabel(d) {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROW_W * 0.8, ROW_H * 0.65),
+    new THREE.MeshBasicMaterial({
+      map: makeCanvasTexture(d.text, d.color, d.size),
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.rotation.z = d.rot || 0;
+  mesh.position.set(d.x, 0.03, d.z);
+  mesh.scale.setScalar(d.scale || 1.0);
+  scene.add(mesh);
+  labelMeshes.push({ mesh, data: { ...d, savedX: d.x, savedZ: d.z } });
+}
+
+// ── Load: сначала JSON-файл, потом localStorage ───────────────────────────────
+async function loadSaved() {
+  // 1. Пробуем загрузить js/world-labels.json
+  try {
+    const res  = await fetch('js/world-labels.json');
+    if (res.ok) {
+      const data = await res.json();
+      data.forEach(spawnLabel);
+      updateLabelList();
+      showToast('ЗАГРУЖЕНО ИЗ ФАЙЛА');
+      return; // файл найден — localStorage не используем
+    }
+  } catch(e) {}
+
+  // 2. Fallback — localStorage
   const raw = localStorage.getItem('ws2_labels');
   if (!raw) return;
   try {
-    JSON.parse(raw).forEach(d => {
-      const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(ROW_W * 0.8, ROW_H * 0.65),
-        new THREE.MeshBasicMaterial({
-          map: makeCanvasTexture(d.text, d.color, d.size),
-          transparent: true, depthWrite: false, side: THREE.DoubleSide,
-        })
-      );
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.rotation.z = d.rot || 0;
-      mesh.position.set(d.x, 0.03, d.z);
-      mesh.scale.setScalar(d.scale || 1.0);
-      scene.add(mesh);
-      labelMeshes.push({ mesh, data: { ...d, savedX: d.x, savedZ: d.z } });
-    });
+    JSON.parse(raw).forEach(spawnLabel);
     updateLabelList();
-    showToast('ЗАГРУЖЕНО');
+    showToast('ЗАГРУЖЕНО ИЗ ПАМЯТИ');
   } catch(e) {}
 }
 

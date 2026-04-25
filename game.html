@@ -623,6 +623,35 @@ function loop(time) {
   renderer.render(scene, camera);
 }
 
+// ── World labels from js/world-labels.json ────────────────────────────────────
+async function loadWorldLabels() {
+  try {
+    const res = await fetch('js/world-labels.json');
+    if (!res.ok) return;
+    const labels = await res.json();
+    labels.forEach(d => {
+      const cv  = document.createElement('canvas');
+      cv.width  = 512; cv.height = 128;
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, 512, 128);
+      ctx.fillStyle    = d.color || '#fff';
+      ctx.font         = `bold ${(d.size || 36) * 2}px Arial Black, Arial`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(d.text, 256, 64);
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROW_W * 0.8, ROW_H * 0.65),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = d.rot || 0;
+      mesh.position.set(d.x, 0.03, d.z);
+      mesh.scale.setScalar(d.scale || 1.0);
+      scene.add(mesh);
+    });
+  } catch(e) {}
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setProgress(15);
@@ -630,6 +659,7 @@ async function init() {
   setProgress(75);
 
   generateWorld();
+  await loadWorldLabels();
   const wp = playerWorldPos(0, 0);
   P.worldX = P.targetX = wp.x;
   P.worldZ = P.targetZ = wp.z;
