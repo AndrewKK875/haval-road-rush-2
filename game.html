@@ -107,15 +107,15 @@ scene.fog = new THREE.Fog(0x87CEEB, 28, 52);
 setProgress(20);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-const VIEW_SIZE = 8;
+const VIEW_SIZE = 10;
 let aspect = window.innerWidth / window.innerHeight;
 const camera = new THREE.OrthographicCamera(
   -VIEW_SIZE * aspect, VIEW_SIZE * aspect,
    VIEW_SIZE, -VIEW_SIZE,
   0.1, 200
 );
-camera.position.set(0, 15, 15);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 12, 14);
+camera.lookAt(0, 0, -6);
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
 const sun = new THREE.DirectionalLight(0xFFF5D0, 2.0);
@@ -198,7 +198,10 @@ function buildWaterRow(index) {
 
 // ── Row type picker ───────────────────────────────────────────────────────────
 function pickType(index) {
-  if (index < 3) return 'grass';   // Стартовая безопасная зона
+  if (index < 3)  return 'grass';  // Стартовая безопасная зона
+  if (index === 3) return 'road';  // Гарантированная дорога
+  if (index === 5) return 'water'; // Гарантированная вода
+  if (index === 7) return 'road';
   const r = Math.random();
   if (r < 0.28) return 'grass';
   if (r < 0.55) return 'road';
