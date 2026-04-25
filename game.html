@@ -162,7 +162,7 @@ scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.Fog(0x87CEEB, 28, 52);
 
 // ── Camera (orthographic isometric) ──────────────────────────────────────────
-const VIEW = 9;
+const VIEW = 7.65;
 let aspect  = window.innerWidth / window.innerHeight;
 const camera = new THREE.OrthographicCamera(
   -VIEW * aspect, VIEW * aspect, VIEW, -VIEW, 0.1, 200
