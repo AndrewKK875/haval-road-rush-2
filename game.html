@@ -6,6 +6,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>HAVAL Road Rush 2</title>
+  <!-- Preload critical assets -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" as="script" crossorigin>
+  <link rel="preload" href="assets/models/tank300.glb" as="fetch" crossorigin>
+  <link rel="preload" href="assets/models/F7.glb"      as="fetch" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #000; touch-action: none; font-family: 'Arial Black', Arial, sans-serif; }
@@ -228,29 +233,48 @@ function normalizeGLB(model) {
   model.position.x -= c.x;
   model.position.z -= c.z;
   model.position.y -= box.min.y;
-  model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  model.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
   model.rotation.y = Math.PI;
 }
 
-async function loadModels() {
+// Вокселевая заглушка машины (пока GLB не загружен)
+function buildVoxelVehicle() {
+  const g    = new THREE.Group();
+  const matB = new THREE.MeshLambertMaterial({ color: 0x607D8B });
+  const matR = new THREE.MeshLambertMaterial({ color: 0x455A64 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.38, 0.56), matB);
+  body.position.y = 0.22; body.castShadow = true; g.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.24, 0.52), matR);
+  roof.position.set(-0.05, 0.51, 0); g.add(roof);
+  return g;
+}
+
+// Подменяем воксель на GLB у всех машин этого типа
+function swapVehiclesGLB(key) {
+  vehicles.filter(v => v.key === key).forEach(v => {
+    while (v.mesh.children.length) v.mesh.remove(v.mesh.children[0]);
+    const clone = TEMPLATES[key].clone(true);
+    if (v.direction === -1) clone.rotation.y = 0; else clone.rotation.y = Math.PI;
+    v.mesh.add(clone);
+  });
+}
+
+// Фоновая загрузка GLB — игра не ждёт
+function loadModelsBackground() {
   const draco = new DRACOLoader();
-  draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
+  // Google CDN — кешируется в браузере между сайтами
+  draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+  draco.preload(); // инициализируем WASM заранее
   const loader = new GLTFLoader();
   loader.setDRACOLoader(draco);
 
-  let loaded = 0;
-  const total = MODEL_KEYS.length;
-  await Promise.all(MODEL_KEYS.map(key =>
-    new Promise(res => {
-      loader.load(MODEL_FILES[key], gltf => {
-        normalizeGLB(gltf.scene);
-        TEMPLATES[key] = gltf.scene;
-        loaded++;
-        setProgress(15 + (loaded / total) * 55);
-        res();
-      }, null, () => res());
-    })
-  ));
+  MODEL_KEYS.forEach(key => {
+    loader.load(MODEL_FILES[key], gltf => {
+      normalizeGLB(gltf.scene);
+      TEMPLATES[key] = gltf.scene;
+      swapVehiclesGLB(key); // заменяем воксели сразу
+    }, null, () => {});
+  });
 }
 
 // ── World state ───────────────────────────────────────────────────────────────
@@ -353,20 +377,24 @@ function addRow(idx) {
     const slotW = (HALF_ROAD * 2) / count;
 
     for (let i = 0; i < count; i++) {
-      const key  = MODEL_KEYS[Math.floor(Math.random() * MODEL_KEYS.length)];
-      const tmpl = TEMPLATES[key];
+      const key   = MODEL_KEYS[Math.floor(Math.random() * MODEL_KEYS.length)];
       const pivot = new THREE.Group();
+      const tmpl  = TEMPLATES[key];
       if (tmpl) {
         const clone = tmpl.clone(true);
+        if (dir === -1) clone.rotation.y = 0; else clone.rotation.y = Math.PI;
         pivot.add(clone);
+      } else {
+        // Воксель пока GLB не загружен
+        const vox = buildVoxelVehicle();
+        if (dir === -1) vox.rotation.y = Math.PI;
+        pivot.add(vox);
       }
-      if (dir === -1) pivot.rotation.y = Math.PI;
 
       const x = -HALF_ROAD + i * slotW + slotW * 0.3 + Math.random() * slotW * 0.4;
       pivot.position.set(x, 0, -idx * ROW_H);
-      pivot.castShadow = true;
       scene.add(pivot);
-      vehicles.push({ mesh: pivot, row: idx, speed, direction: dir, width: 1.0 });
+      vehicles.push({ mesh: pivot, row: idx, speed, direction: dir, width: 1.0, key });
     }
   }
 
@@ -654,11 +682,11 @@ async function loadWorldLabels() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-  setProgress(15);
-  await loadModels();
-  setProgress(75);
+  setProgress(40);
 
+  // Генерируем мир сразу — без ожидания GLB
   generateWorld();
+  setProgress(80);
   await loadWorldLabels();
   const wp = playerWorldPos(0, 0);
   P.worldX = P.targetX = wp.x;
@@ -668,6 +696,9 @@ async function init() {
   setProgress(95);
   hideLoading();
   requestAnimationFrame(loop);
+
+  // GLB грузятся в фоне — не блокируют игру
+  loadModelsBackground();
 }
 
 init();
