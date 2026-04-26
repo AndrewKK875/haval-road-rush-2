@@ -509,7 +509,32 @@ function triggerGameOver() {
 }
 
 window.restartGame = function() {
-  location.reload();
+  // Очищаем мир (без перезагрузки страницы)
+  [...rows].forEach(r => removeRow(r));
+  rows.length = 0;
+  vehicles.length = 0;
+  logs.length = 0;
+  nextRow = 0;
+
+  // Сбрасываем игрока
+  P.tile = 0; P.row = 0;
+  P.worldX = P.targetX = 0;
+  P.worldZ = P.targetZ = 0;
+  P.moving = false; P.alive = true;
+  P.ridingLog = null; P.score = 0;
+  pBody.material = MATS.player;
+  playerGroup.position.set(0, 0, 0);
+
+  // Сбрасываем камеру
+  camera.position.copy(CAM_OFF);
+  camera.lookAt(0, 0, 0);
+
+  // Сбрасываем UI
+  document.getElementById('score').textContent = 0;
+  document.getElementById('gameover').style.display = 'none';
+
+  // Генерируем новый мир
+  generateWorld();
 };
 
 // ── Controls (keyboard) ───────────────────────────────────────────────────────
