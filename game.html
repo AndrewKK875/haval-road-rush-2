@@ -572,7 +572,7 @@ function loop(time) {
   if (!P.alive) { renderer.render(scene, camera); return; }
 
   // Движение игрока (lerp)
-  const lerpSpeed = 14.4;
+  const lerpSpeed = 12;
   P.worldX += (P.targetX - P.worldX) * lerpSpeed * dt;
   P.worldZ += (P.targetZ - P.worldZ) * lerpSpeed * dt;
   if (P.moving && Math.abs(P.worldX - P.targetX) < 0.01 && Math.abs(P.worldZ - P.targetZ) < 0.01) {
