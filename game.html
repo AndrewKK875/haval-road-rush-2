@@ -254,7 +254,7 @@ function swapVehiclesGLB(key) {
   vehicles.filter(v => v.key === key).forEach(v => {
     while (v.mesh.children.length) v.mesh.remove(v.mesh.children[0]);
     const clone = TEMPLATES[key].clone(true);
-    if (v.direction === -1) clone.rotation.y = 0; else clone.rotation.y = Math.PI;
+    if (v.direction === -1) clone.rotation.y = Math.PI; else clone.rotation.y = 0;
     v.mesh.add(clone);
   });
 }
@@ -382,7 +382,7 @@ function addRow(idx) {
       const tmpl  = TEMPLATES[key];
       if (tmpl) {
         const clone = tmpl.clone(true);
-        if (dir === -1) clone.rotation.y = 0; else clone.rotation.y = Math.PI;
+        if (dir === -1) clone.rotation.y = Math.PI; else clone.rotation.y = 0;
         pivot.add(clone);
       } else {
         // Воксель пока GLB не загружен
